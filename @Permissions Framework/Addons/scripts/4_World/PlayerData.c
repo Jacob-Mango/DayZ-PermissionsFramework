@@ -37,6 +37,7 @@ class PlayerData
     
     int ILifeSpanState;
     bool BBloodyHands;
+    bool BGodMode
 
     void PlayerData()
     {
@@ -62,5 +63,6 @@ class PlayerData
         data.FStamina = player.GetStatStamina().Get();
         data.ILifeSpanState = player.GetLifeSpanState();
         data.BBloodyHands = player.HasBloodyHands();
+        data.BGodMode = player.m_HasGodeMode;
     }
 }
