@@ -66,85 +66,13 @@ modded class MissionServer
 	{
         super.OnPreloadEvent( identity, useDB, pos, yaw, queueTime );
 
-        //GetPermissionsManager().GetPlayerByIdentity( identity );
+        GetPermissionsManager().GetPlayerByIdentity( identity );
     }
 
     override void InvokeOnConnect( PlayerBase player, PlayerIdentity identity)
 	{
         super.InvokeOnConnect( player, identity );
-
-        //GetPermissionsManager().GetPlayerByIdentity( identity );
-
-        SetClientPermissionsOnConnection( identity, player );
-    } 
-
-	override void OnClientReconnectEvent( PlayerIdentity identity, PlayerBase player )
-	{
-        super.OnClientReconnectEvent( identity, player );
         
-        //GetPermissionsManager().GetPlayerByIdentity( identity );
-        
-        SetClientPermissionsOnConnection( identity, player );
-    }
-
-	override void OnClientReadyEvent(PlayerIdentity identity, PlayerBase player)
-	{
-        super.OnClientReadyEvent( identity, player );
-        
-        //GetPermissionsManager().GetPlayerByIdentity( identity );
-        
-        SetClientPermissionsOnConnection( identity, player );
-	}	
-
-/*
-	override void OnClientRespawnEvent(PlayerIdentity identity, PlayerBase player)
-	{
-        super.OnClientRespawnEvent( identity, player );
-        
-        //GetPermissionsManager().GetPlayerByIdentity( identity );
-        
-        //SetClientPermissionsOnConnection( identity, player );
-    }
-
-    override void HandleBody(PlayerBase player)
-	{
-        //GetPermissionsManager().PlayerLeft( player.GetIdentity() );
-
-        super.HandleBody( player );
-	}
-*/
-
-/*
-    override void PlayerDisconnected( PlayerBase player, PlayerIdentity identity, string uid )
-	{
-        //GetPermissionsManager().PlayerLeft( identity );
-
-        super.PlayerDisconnected( player, identity, uid );
-*/
-/*
-        for ( int i = 0; i < GetPermissionsManager().AuthPlayers.Count(); i++ )
-        {
-            ref AuthPlayer ap = GetPermissionsManager().AuthPlayers[i];
-
-            for ( int j = 0; j < identities.Count(); j++ )
-            {
-                if ( ap.GetGUID() == identities[j].GetId() )
-                {
-                    ap.Save();
-
-                    GetRPCManager().SendRPC( "PermissionsFramework", "RemovePlayer", new Param1< ref PlayerData >( SerializePlayer( ap ) ), true );
-
-                    GetPermissionsManager().AuthPlayers.Remove( i );
-
-                    i = i - 1;
-                }
-            }
-        }
-*/
-//    } 
-
-    void SetClientPermissionsOnConnection( PlayerIdentity identity, PlayerBase player )
-    {
         for ( int i = 0; i < GetPermissionsManager().Roles.Count(); i++ )
         {
             ref Role role = GetPermissionsManager().Roles[i];
@@ -152,11 +80,16 @@ modded class MissionServer
             GetRPCManager().SendRPC( "PermissionsFramework", "UpdateRole", new Param2< string, ref array< string > >( role.Name, role.SerializedData ), true, identity );
         }
 
-        ref AuthPlayer auPlayer = GetPermissionsManager().GetPlayerByIdentity( identity );
+        GetRPCManager().SendRPC( "PermissionsFramework", "SetClientPlayer", new Param1< ref PlayerData >( SerializePlayer( GetPermissionsManager().GetPlayerByIdentity( identity ) ) ), true, identity );
 
-        auPlayer.PlayerObject = player;
+        GetGame().SelectPlayer( identity, player );
+    } 
 
-        GetRPCManager().SendRPC( "PermissionsFramework", "SetClientPlayer", new Param1< ref PlayerData >( SerializePlayer( auPlayer ) ), true, identity );
-    }
+    override void PlayerDisconnected( PlayerBase player, PlayerIdentity identity, string uid )
+	{
+        GetPermissionsManager().PlayerLeft( identity );
+
+        super.PlayerDisconnected( player, identity, uid );
+    } 
 
 }

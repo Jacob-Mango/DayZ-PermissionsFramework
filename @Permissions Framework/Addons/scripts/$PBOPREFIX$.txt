@@ -1,0 +1,7 @@
+﻿///<'scripts.pbo' properties via Mikero's dos tools, dll version 7.03>///
+prefix=JM\PermissionsFramework\scripts
+Mikero=DePbo.dll.6.44
+version=00000000
+//Pbo Type is: Arma Addon
+//Sha: '606BE3469CF40B355669396559BF1356AE30868E'
+//////</properties>//////

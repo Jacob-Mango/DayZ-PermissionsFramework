@@ -1,32 +1,30 @@
 int JM_PERMISSIONS_FRAMEWORK_CURRENT_VERSION_MAJOR = 0;
-int JM_PERMISSIONS_FRAMEWORK_CURRENT_VERSION_MINOR = 6;
-int JM_PERMISSIONS_FRAMEWORK_CURRENT_VERSION_REVISION = 0;
+int JM_PERMISSIONS_FRAMEWORK_CURRENT_VERSION_MINOR = 5;
+int JM_PERMISSIONS_FRAMEWORK_CURRENT_VERSION_REVISION = 1;
 
 class PermissionsFramework
 {
+    protected ref array< Man > m_ServerPlayers;
+    protected ref array< PlayerIdentity > m_ServerIdentities;
+
     protected bool m_bLoaded;
-
-    protected int m_Index;
-    protected int m_UpdateMax;
-    protected bool m_ClearNext;
-
-    protected ref array< Man > m_Players;
-
-    protected ref array< ref MinifiedPlayerData > m_PlayerListData;
 
     void PermissionsFramework()
     {
         MakeDirectory( PERMISSION_FRAMEWORK_DIRECTORY );
 
-        m_Index = 0;
-        m_UpdateMax = 5;
+        if ( GetGame().IsServer() && GetGame().IsMultiplayer() )
+        {
+            m_ServerPlayers = new ref array< Man >;
+            m_ServerIdentities = new ref array< PlayerIdentity >;
+        }
 
         m_bLoaded = false;
-        m_PlayerListData = new ref array< ref MinifiedPlayerData >;
 
+        GetRPCManager().AddRPC( "PermissionsFramework", "UpdatePlayers", this, SingeplayerExecutionType.Server );
         GetRPCManager().AddRPC( "PermissionsFramework", "RemovePlayer", this, SingeplayerExecutionType.Client );
-        GetRPCManager().AddRPC( "PermissionsFramework", "UpdatePlayers", this, SingeplayerExecutionType.Client );
-        GetRPCManager().AddRPC( "PermissionsFramework", "UpdatePlayerData", this, SingeplayerExecutionType.Client )
+        GetRPCManager().AddRPC( "PermissionsFramework", "UpdatePlayer", this, SingeplayerExecutionType.Client );
+        GetRPCManager().AddRPC( "PermissionsFramework", "UpdatePlayerData", this, SingeplayerExecutionType.Client );
         GetRPCManager().AddRPC( "PermissionsFramework", "UpdateRole", this, SingeplayerExecutionType.Client );
         GetRPCManager().AddRPC( "PermissionsFramework", "SetClientPlayer", this, SingeplayerExecutionType.Client );
         GetRPCManager().AddRPC( "PermissionsFramework", "CheckVersion", this, SingeplayerExecutionType.Server );
@@ -42,6 +40,8 @@ class PermissionsFramework
         if ( GetGame().IsServer() && GetGame().IsMultiplayer() )
         {
             GetGame().GetCallQueue( CALL_CATEGORY_SYSTEM ).Remove( this.ReloadPlayerList );
+
+            delete m_ServerPlayers;
         }
     }
     
@@ -61,12 +61,13 @@ class PermissionsFramework
     {
         if ( GetGame().IsClient() && GetGame().IsMultiplayer() )
         {
+            GetRPCManager().SendRPC( "PermissionsFramework", "UpdatePlayers", new Param, true );
             GetRPCManager().SendRPC( "PermissionsFramework", "CheckVersion", new Param3< int, int, int >( JM_PERMISSIONS_FRAMEWORK_CURRENT_VERSION_MAJOR, JM_PERMISSIONS_FRAMEWORK_CURRENT_VERSION_MINOR, JM_PERMISSIONS_FRAMEWORK_CURRENT_VERSION_REVISION ), true );
         }
 
         if ( GetGame().IsServer() && GetGame().IsMultiplayer() )
         {
-            StartPlayerListReloading();
+            GetGame().GetCallQueue( CALL_CATEGORY_SYSTEM ).CallLater( this.ReloadPlayerList, 1000, true );
         }
     }
 
@@ -86,158 +87,62 @@ class PermissionsFramework
 
     }
 
-    /*
-    void ReloadPlayerList()
+    private bool CheckIfExists( ref AuthPlayer auPlayer )
     {
-        Print("--- Start of ReloadPlayerList ---");
-
-        if ( m_ClearNext )
+        for ( int i = 0; i < m_ServerIdentities.Count(); i++ )
         {
-            m_PlayerListData.Clear();
-            m_ClearNext = false;
-        }
-
-        int numberOfPlayers = GetPermissionsManager().Count();
-        int timeBetween = 1000;
-
-        if ( numberOfPlayers > 0 ) timeBetween = timeBetween / numberOfPlayers;
-
-        for ( int j = 0; j < m_UpdateMax; j++ )
-        {
-            m_Index = m_Index + j;
-            
-            if ( m_Index >= numberOfPlayers || m_Index < 0 )
-            {   
-                if ( m_PlayerListData.Count() > 0 )
-                {
-                    Print( "--- Start of Full ReloadPlayerList ---" );
-                    Print( m_PlayerListData.Count() );
-                    for ( int k = 0; k < m_PlayerListData.Count(); k++ )
-                    {
-                        Print( m_PlayerListData[k] );
-                    }
-                    Print( "--- End of Full ReloadPlayerList ---" );
-
-                    GetRPCManager().SendRPC( "PermissionsFramework", "UpdatePlayers", new Param1< ref array< ref MinifiedPlayerData > >( m_PlayerListData ), true, NULL );
-                    m_ClearNext = true;
-                }
-                
-                m_Index = 0;
-
-                Print("--- End of ReloadPlayerList ---");
-
-                GetGame().GetCallQueue( CALL_CATEGORY_SYSTEM ).CallLater( this.ReloadPlayerList, timeBetween, false );
-                return;
-            }
-
-            ref AuthPlayer auPlayer = GetPermissionsManager().Get( m_Index );
-
-            if ( auPlayer != NULL )
+            if ( auPlayer.GetGUID() == m_ServerIdentities[i].GetId() )
             {
-                auPlayer.UpdatePlayerData();
-
-                m_PlayerListData.Insert( auPlayer.GenerateMinifiedData() );
+                return true;
             }
         }
-        Print("--- End of ReloadPlayerList ---");
 
-        GetGame().GetCallQueue( CALL_CATEGORY_SYSTEM ).CallLater( this.ReloadPlayerList, timeBetween, false );
-    }
-    */
-
-    void StartPlayerListReloading()
-    {
-        m_Players = new ref array< Man >;
-
-        GetGame().GetWorld().GetPlayerList( m_Players );
-
-        int numberOfPlayers = m_Players.Count();
-        int timeBetween = 1000;
-
-        if ( numberOfPlayers > 0 ) timeBetween = timeBetween / numberOfPlayers;
-
-        GetGame().GetCallQueue( CALL_CATEGORY_SYSTEM ).CallLater( this.ReloadPlayerList, timeBetween, false );
-    }
-
-    void EndPlayerListReloading()
-    {
-        GetGame().GetCallQueue( CALL_CATEGORY_SYSTEM ).Remove( this.ReloadPlayerList );
-
-        m_Players = NULL;
+        return false;
     }
 
     void ReloadPlayerList()
     {
-        Print("--- Start of ReloadPlayerList ---");
+        GetGame().GetPlayers( m_ServerPlayers );
 
-        if ( m_Players == NULL )
-            return;
+        GetGame().GetPlayerIndentities( m_ServerIdentities );
 
-        if ( m_ClearNext )
+        for ( int i = 0; i < GetPermissionsManager().AuthPlayers.Count(); i++ )
         {
-            m_PlayerListData.Clear();
-            m_ClearNext = false;
+            ref AuthPlayer ap = GetPermissionsManager().AuthPlayers[i];
+
+            if ( !CheckIfExists( ap ) )
+            {
+                ap.Save();
+
+                GetRPCManager().SendRPC( "PermissionsFramework", "RemovePlayer", new Param1< ref PlayerData >( SerializePlayer( ap ) ), true );
+
+                GetPermissionsManager().AuthPlayers.Remove( i );
+
+                i = i - 1;
+            }
+            
         }
 
-        int numberOfPlayers = m_Players.Count();
-        int timeBetween = 1000;
-
-        if ( numberOfPlayers > 0 ) timeBetween = timeBetween / numberOfPlayers;
-
-        for ( int j = 0; j < m_UpdateMax; j++ )
+        for ( int j = 0; j < m_ServerPlayers.Count(); j++ )
         {
-            Print(" Player " + m_Index );
-            
-            if ( m_Index >= m_Players.Count() || m_Index < 0 )
-            {   
-                if ( m_PlayerListData.Count() > 0 )
-                {
-                    Print( "--- Start of Full ReloadPlayerList ---" );
-                    Print( m_PlayerListData.Count() );
-                    for ( int k = 0; k < m_PlayerListData.Count(); k++ )
-                    {
-                        Print( m_PlayerListData[k] );
-                    }
-                    Print( "--- End of Full ReloadPlayerList ---" );
+            Man man = m_ServerPlayers[j];
+            PlayerBase player = PlayerBase.Cast( man );
 
-                    GetRPCManager().SendRPC( "PermissionsFramework", "UpdatePlayers", new Param1< ref array< ref MinifiedPlayerData > >( m_PlayerListData ), true, NULL );
-                    m_ClearNext = true;
-                }
-                
-                m_Index = 0;
-                
-                GetGame().GetWorld().GetPlayerList( m_Players );
-
-                Print("--- End of ReloadPlayerList ---");
-
-                GetGame().GetCallQueue( CALL_CATEGORY_SYSTEM ).CallLater( this.ReloadPlayerList, timeBetween, false );
-
-                return;
-            }
-
-            PlayerBase player = PlayerBase.Cast( m_Players[m_Index] );
-
-            ref AuthPlayer auPlayer = GetPermissionsManager().GetPlayerByIdentity( m_Players[m_Index].GetIdentity() );
+            ref AuthPlayer auPlayer = GetPermissionsManager().GetPlayerByIdentity( man.GetIdentity() );
 
             if ( player )
             {
                 player.authenticatedPlayer = auPlayer;
-
-                if ( auPlayer )
-                {
-                    auPlayer.UpdatePlayerData();
-
-                    auPlayer.PlayerObject = player;
-
-                    m_PlayerListData.Insert( auPlayer.GenerateMinifiedData() );
-                }
             }
-            
-            m_Index = m_Index + 1;
+
+            auPlayer.PlayerObject = player;
+            auPlayer.IdentityPlayer = man.GetIdentity();
+
+            auPlayer.UpdatePlayerData();
         }
-        Print("--- End of ReloadPlayerList ---");
-        
-        GetGame().GetCallQueue( CALL_CATEGORY_SYSTEM ).CallLater( this.ReloadPlayerList, timeBetween, false );
+
+        m_ServerPlayers.Clear();
+        m_ServerIdentities.Clear();
     }
 
     void CheckVersion( CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target )
@@ -267,6 +172,21 @@ class PermissionsFramework
         }
     }
 
+    void UpdatePlayers( CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target )
+    {
+        if ( type == CallType.Server )
+        {
+            if ( GetGame().IsMultiplayer() )
+            {
+                for ( int i = 0; i < GetPermissionsManager().GetPlayers().Count(); i++ )
+                {
+                    ref AuthPlayer ap = GetPermissionsManager().GetPlayers()[i];
+                    GetRPCManager().SendRPC( "PermissionsFramework", "UpdatePlayer", new Param3< string, string, string >( ap.GetSteam64ID(), ap.GetName(), ap.GetGUID() ), true, sender );
+                }
+            }
+        }
+    }
+
     void RemovePlayer( CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target )
     {
         if ( type == CallType.Client )
@@ -284,48 +204,19 @@ class PermissionsFramework
         }
     }
 
-    void UpdatePlayers( CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target )
+    void UpdatePlayer( CallType type, ref ParamsReadContext ctx, ref PlayerIdentity sender, ref Object target )
     {
         if ( type == CallType.Client )
         {
             if ( GetGame().IsMultiplayer() )
             {
-                Print("--- Start of UpdatePlayers ---");
-
-                ref Param1< ref array< ref MinifiedPlayerData > > data;
+                ref Param3< string, string, string > data;
                 if ( !ctx.Read( data ) ) return;
 
-                m_PlayerListData = data.param1;
+                ref AuthPlayer ap = GetPermissionsManager().GetPlayerBySteam64ID( data.param1 );
 
-                Print( m_PlayerListData );
-                Print( m_PlayerListData.Count() );
-
-                GetPermissionsManager().Clear();
-
-                for ( int i = 0; i < m_PlayerListData.Count(); i++ )
-                {
-                    Print( m_PlayerListData[i] );
-
-                    if ( m_PlayerListData[i] == NULL ) continue;
-
-                    ref PlayerData pd = new ref PlayerData;
-                                
-                    pd.SName = m_PlayerListData[i].Name;
-                    pd.SGUID = m_PlayerListData[i].GUID; 
-                    pd.SSteam64ID = m_PlayerListData[i].SteamID; 
-                    pd.VPosition = m_PlayerListData[i].Position; 
-                            
-                    Print( pd );
-
-                    ref AuthPlayer player = new ref AuthPlayer( pd );
-
-                    player.PlayerObject = m_PlayerListData[i].Obj;
-
-                    GetPermissionsManager().Insert( player );
-
-                    Print( player );
-                }
-                Print("--- End of UpdatePlayers ---");
+                ap.Data.SName = data.param2;
+                ap.Data.SGUID = data.param3; 
             }
         }
     }
@@ -345,7 +236,7 @@ class PermissionsFramework
                 ref AuthPlayer player = GetPermissionsManager().GetPlayerByGUID( data.param1 );
                 if ( !player ) return;
 
-                GetRPCManager().SendRPC( "PermissionsFramework", "UpdatePlayerData", new Param1< ref PlayerData >( SerializePlayer( player ) ), true, sender, player.PlayerObject );
+                GetRPCManager().SendRPC( "PermissionsFramework", "UpdatePlayerData", new Param1< ref PlayerData >( SerializePlayer( player ) ), true, sender );
             }
         }
 
@@ -356,7 +247,7 @@ class PermissionsFramework
                 ref Param1< ref PlayerData > cdata;
                 if ( !ctx.Read( cdata ) ) return;
 
-                DeserializePlayer( cdata.param1 ).PlayerObject = target;
+                DeserializePlayer( cdata.param1 );
             }
         }
     }

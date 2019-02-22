@@ -1,7 +1,6 @@
 static ref AuthPlayer ClientAuthPlayer;
 
 static ref array< ref AuthPlayer > SELECTED_PLAYERS;
-static ref array< string > SELECTED_GUIDS;
 
 static bool PERRMISSIONS_FRAMEWORK_DEBUG_MODE_ENABLED = false;
 
@@ -14,25 +13,9 @@ ref array< ref AuthPlayer > GetSelectedPlayers()
     return SELECTED_PLAYERS;
 }
 
-ref array< string > GetSelectedGUIDs()
-{
-    if ( SELECTED_GUIDS == NULL )
-    {
-        SELECTED_GUIDS = new ref array< string >;
-    }
-    return SELECTED_GUIDS;
-}
-
 bool PlayerAlreadySelected( ref AuthPlayer player )
 {
     int position = GetSelectedPlayers().Find( player );
-
-    return position > -1;
-}
-
-bool GUIDAlreadySelected( string player )
-{
-    int position = GetSelectedGUIDs().Find( player );
 
     return position > -1;
 }
@@ -46,39 +29,17 @@ int RemoveSelectedPlayer( ref AuthPlayer player )
 		GetSelectedPlayers().Remove( position );
 	}
 
-    RemoveSelectedGUID( player.GetGUID() );
-
-    return position;
-}
-
-int RemoveSelectedGUID( string player )
-{
-	int position = GetSelectedGUIDs().Find( player );
-
-	if ( position > -1 )
-	{
-		GetSelectedGUIDs().Remove( position );
-	}
-
     return position;
 }
 
 int AddSelectedPlayer( ref AuthPlayer player )
 {
-    int posPlayer = GetSelectedPlayers().Find( player );
-    int posGUID = GetSelectedGUIDs().Find( player.GetGUID() );
+    int position = GetSelectedPlayers().Find( player );
     
-    if ( posPlayer > -1 )
-        return posPlayer;
+    if ( position > -1 )
+        return position;
 
-    if ( posGUID == -1 )
-    {
-        posGUID = GetSelectedGUIDs().Insert( player.GetGUID() );
-    }
-    
-    posPlayer = GetSelectedPlayers().Insert( player );
-
-    return posPlayer;
+    return GetSelectedPlayers().Insert( player );
 }
 
 ref PlayerData SerializePlayer( ref AuthPlayer player )
@@ -131,5 +92,5 @@ ref array< string > SerializePlayersID( array< ref AuthPlayer > players )
 
 array< ref AuthPlayer > DeserializePlayersID( ref array< string > steam64Ids )
 {
-    return GetPermissionsManager().GetFromGUIDs( steam64Ids );
+    return GetPermissionsManager().GetPlayers( steam64Ids );
 }

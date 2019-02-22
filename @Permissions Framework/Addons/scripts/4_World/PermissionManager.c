@@ -17,55 +17,24 @@ class PermissionManager
         RootPermission = new ref Permission( "ROOT" );
 
 /*
-        if ( PERRMISSIONS_FRAMEWORK_DEBUG_MODE_ENABLED )
+        for ( int i = 0; i < 180; i++ )
         {
-            for ( int i = 0; i < 1; i++ )
-            {
-                ref PlayerData data = new ref PlayerData;
-                data.SName = "Player " + i;
-                data.SGUID = "Player" + i;
+            ref PlayerData data = new ref PlayerData;
+            data.SName = "Player " + i;
+            data.SGUID = "Player" + i;
 
-                vector position = "0 0 0";
-
-                //position[0] = Math.RandomFloat( 1000, 9000 );
-                //position[1] = Math.RandomFloat( 5, 50 );
-                //position[2] = Math.RandomFloat( 1000, 9000 );
-
-                ref AuthPlayer player = new ref AuthPlayer( data );
-                player.PlayerObject = GetGame().CreateObject( "SurvivorM_Mirek", position, false, true )
-                AuthPlayers.Insert( player );
-            }
+            AuthPlayers.Insert( new ref AuthPlayer( data ) );
         }
 */
     }
 
-    int Count()
+    array< ref AuthPlayer > GetPlayers( ref array< string > steamIds = NULL )
     {
-        return AuthPlayers.Count();
-    }
+        if ( steamIds == NULL )
+        {
+            return AuthPlayers;
+        }
 
-    ref AuthPlayer Get( int index )
-    {
-        return AuthPlayers[index];
-    }
-
-    int Insert( ref AuthPlayer player )
-    {
-        return AuthPlayers.Insert( player );
-    }
-
-    void Clear()
-    {
-        AuthPlayers.Clear();
-    }
-
-    array< ref AuthPlayer > GetPlayers()
-    {
-        return AuthPlayers;
-    }
-
-    array< ref AuthPlayer > GetFromSteamIDs( ref array< string > steamIds = NULL )
-    {
         array< ref AuthPlayer > tempArray = new array< ref AuthPlayer >;
 
         for ( int i = 0; i < steamIds.Count(); i++ )
@@ -73,24 +42,6 @@ class PermissionManager
             for ( int k = 0; k < AuthPlayers.Count(); k++ )
             {
                 if ( steamIds[i] == AuthPlayers[k].GetSteam64ID() )
-                {
-                    tempArray.Insert( AuthPlayers[k] );
-                }
-            }
-        }
-
-        return tempArray;
-    }
-
-    array< ref AuthPlayer > GetFromGUIDs( ref array< string > guids = NULL )
-    {
-        array< ref AuthPlayer > tempArray = new array< ref AuthPlayer >;
-
-        for ( int i = 0; i < guids.Count(); i++ )
-        {
-            for ( int k = 0; k < AuthPlayers.Count(); k++ )
-            {
-                if ( guids[i] == AuthPlayers[k].GetGUID() )
                 {
                     tempArray.Insert( AuthPlayers[k] );
                 }
@@ -213,7 +164,7 @@ class PermissionManager
             {
                 auPlayer.Save();
 
-                // GetRPCManager().SendRPC( "PermissionsFramework", "RemovePlayer", new Param1< ref PlayerData >( SerializePlayer( auPlayer ) ), true );
+                GetRPCManager().SendRPC( "PermissionsFramework", "RemovePlayer", new Param1< ref PlayerData >( SerializePlayer( auPlayer ) ), true );
 
                 AuthPlayers.Remove( i );
                 break;
@@ -231,7 +182,7 @@ class PermissionManager
             {
                 auPlayer.Save();
 
-                // GetRPCManager().SendRPC( "PermissionsFramework", "RemovePlayer", new Param1< ref PlayerData >( SerializePlayer( auPlayer ) ), true );
+                GetRPCManager().SendRPC( "PermissionsFramework", "RemovePlayer", new Param1< ref PlayerData >( SerializePlayer( auPlayer ) ), true );
 
                 AuthPlayers.Remove( i );
                 break;
@@ -246,47 +197,6 @@ class PermissionManager
         {
             AuthPlayers[i].DebugPrint();
         }
-    }
-
-    ref AuthPlayer UpdateAuthPlayer( MinifiedPlayerData minied )
-    {
-        Print( minied.SteamID + " " + minied );
-
-        ref AuthPlayer auPlayer = NULL;
-
-        for ( int i = 0; i < AuthPlayers.Count(); i++ )
-        {
-            if ( AuthPlayers[i].GetGUID() == minied.GUID )
-            {
-                auPlayer = AuthPlayers[i];
-                
-                auPlayer.Data.SName = minied.Name;
-                auPlayer.Data.SGUID = minied.GUID; 
-                auPlayer.Data.SSteam64ID = minied.SteamID; 
-                auPlayer.Data.VPosition = minied.Position; 
-                auPlayer.PlayerObject = minied.Obj;
-
-                break;
-            }
-        }
-
-        if ( auPlayer == NULL )
-        {
-            ref PlayerData data = new ref PlayerData;
-                        
-            data.SName = minied.Name;
-            data.SGUID = minied.GUID; 
-            data.SSteam64ID = minied.SteamID; 
-            data.VPosition = minied.Position; 
-                    
-            auPlayer = new ref AuthPlayer( data );
-
-            auPlayer.PlayerObject = minied.Obj;
-
-            AuthPlayers.Insert( auPlayer );
-        }
-
-        return auPlayer;
     }
 
     ref AuthPlayer GetPlayerByGUID( string guid )

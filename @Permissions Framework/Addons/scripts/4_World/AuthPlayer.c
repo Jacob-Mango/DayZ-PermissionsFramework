@@ -64,20 +64,6 @@ class AuthPlayer
         return Data.SName;
     }
 
-    ref MinifiedPlayerData GenerateMinifiedData()
-    {
-        ref MinifiedPlayerData data = new ref MinifiedPlayerData;
-
-        data.Name = Data.SName;
-        data.SteamID = Data.SSteam64ID;
-        data.GUID = Data.SGUID;
-        data.Position = Data.VPosition;
-
-        data.Obj = PlayerObject;
-
-        return data;
-    }          
-
     void UpdatePlayerData()
     {
         if ( IdentityPlayer == NULL ) return;
@@ -129,12 +115,16 @@ class AuthPlayer
 
         bool has = RootPermission.HasPermission( permission, permType );
 
+        Print( "Player " +  GetName() + " is " + has + " with perm type " + permType );
+
         if ( has )
             return true;
 
         for ( int j = 0; j < Roles.Count(); j++ )
         {
             bool roleHas = Roles[j].HasPermission( permission, rolePermType );
+
+            Print( "Role " +  Roles[j].Name + " is " + roleHas + " with perm type " + rolePermType );
 
             if ( roleHas )
             {
@@ -145,14 +135,11 @@ class AuthPlayer
         return false;
     }
 
-    void ClearRoles()
-    {
-        Roles.Clear();
-    }
-
     void AddStringRole( string role )
     {
         ref Role r = GetPermissionsManager().RolesMap.Get( role );
+
+        Print( "Adding role " + role + ": " + r );
 
         if ( Roles.Find( r ) < 0 ) 
         {
@@ -162,6 +149,8 @@ class AuthPlayer
 
     void AddRole( Role role )
     {
+        Print( "Adding role " + role );
+
         m_HasPlayerData = true;
 
         Roles.Insert( role );
